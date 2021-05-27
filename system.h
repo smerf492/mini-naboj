@@ -10,17 +10,84 @@ using namespace std;
 
 const int zad=50;//max zadan
 const int zaw=50;//max zawodnikow
-const int szer=300;//max rozmiary rysowanych ramek -> wartosci z rezerwa, bo nie ma wplywu na okno i nie zabiera duzo pamieci (60KB)
+const int szer=300;//max rozmiary rysowanych ramek -> wartosci z rezerwa, bo nie ma wplywu na okno i nie zabiera duzo pamieci
 const int wys=200;
 bool ramki[wys+2][szer+2]={};
-int d[zaw][zad+1]={};//tablica na dane
-int g[zaw][zad]={};//??
 int il_zaw, il_zad, szer_nicosci;
 int barwa=-1, barwa2, barwa3;
 int poz_czas, czas_kon, dl_frozen, dl_nazw;
-int ilnast, koniec=0, szer_rys_tab, blad=0, czywid=0;
+int ilnast, koniec=0, blad=0, czywid;
+unsigned int szer_rys_tab;
 string frozen;
 string nazwy[zaw+1]={};//tablica na nazwy uczestnikow
+
+struct tabela_danych //dane zadaniach
+{	//dodana aby wprowadzic wzorzec projektowy, dlatego nie jest przewidziana w testach jednostkowych
+	int wid[zaw][zad+1];//dane widoczne
+	int akt[zaw][zad+1];//dane aktualne
+	bool aktualne;
+	int pamiatka;
+	void zeruj()
+	{
+		for(int i=0;i<zaw;i++)for(int j=0;j<=zad;j++)akt[i][j]=0;
+		for(int i=0;i<zaw;i++)for(int j=0;j<zad;j++)wid[i][j]=-1;
+		for(int i=0;i<zaw;i++)wid[i][zad]=0;
+		aktualne=1;
+		pamiatka=0;
+	}
+	void akt_do_wid(int zaw_od0)
+	{
+		int do_pok=ilnast;
+		for(int i=0;i<il_zad;i++)
+		{
+			if(akt[zaw_od0][i]==1)wid[zaw_od0][i]=1;
+			else if(do_pok>0)
+			{
+				do_pok--;
+				wid[zaw_od0][i]=0;
+			}
+			else wid[zaw_od0][i]=-1;
+			wid[zaw_od0][zad]=akt[zaw_od0][zad];
+		}
+	}
+	void pelna_akt(int zmiana_ilnast, bool pam=1)
+	{
+		ilnast+=zmiana_ilnast;
+		for(int i=0;i<il_zaw;i++) akt_do_wid(i);
+		if(pam==1)pamiatka=zmiana_ilnast-10;
+	}
+	void zmiana(int zawodnik, int zadanie, bool pam=1)
+	{
+		akt[zawodnik-1][zad] -= akt[zawodnik-1][zadanie-1]; //ta komorka pamieta ilosc zrobionych zadan
+		akt[zawodnik-1][zadanie-1] = (akt[zawodnik-1][zadanie-1]+1)%2; //wpisanie drugi raz tych samych danych cofa zadanie
+		akt[zawodnik-1][zad] += akt[zawodnik-1][zadanie-1];
+		if(aktualne==1) akt_do_wid(zawodnik-1);
+		//wzorzec pamiatka, struktura sama pamieta ostatnia akcje do ewentualnego cofniecia
+		//ulatwia to logicznie cofniecie ostatniego wpisu
+		//wzorzec jest uproszczony do wylacznie potrzebnych w tym programie rzeczy, stad zamyka sie w jednej zmiennej
+		if(pam==1) pamiatka=(zawodnik<<8)+zadanie;
+	}
+	int back()
+	{
+		int tmp=pamiatka;
+		if(tmp>0) zmiana(tmp>>8, tmp%256, 0);
+		else if(tmp<0) pelna_akt(-(tmp+10));
+		return pamiatka;
+	}
+};
+tabela_danych dane;
+
+void pokaz_zapisane_dane()
+{
+	cout<<"ilosc zaw.: "<<il_zaw<<endl<<"ilosc zad.: "<<il_zad<<endl;
+	cout<<"ilosc pocz. zad.: "<<ilnast<<endl<<"odl. od lewej kraw. okna: "<<szer_nicosci<<endl;
+	cout<<"numery kolorow: "<<barwa<<" "<<barwa2<<" "<<barwa3<<endl;
+	cout<<"czasy konkursu i zamrozenia: "<<czas_kon<<" "<<dl_frozen<<endl;
+	cout<<"czy tabela jest aktualna po konkursie: "<<czywid<<endl;
+	cout<<"zapisane napisy:\n-dla zamrozenia tabeli: "<<pl(frozen)<<endl;
+	cout<<"-dla naglowka tabeli: "<<pl(nazwy[zaw])<<endl;
+	
+}
 
 void __cdecl dwa(void*Args)//drugi watek aktywny
 {
@@ -31,32 +98,43 @@ void __cdecl dwa(void*Args)//drugi watek aktywny
 	dz<<il_zaw<<" "<<il_zad<<endl;
 	while(out==0)
 	{
-		in1=getch()-48;
+		in1=getch();
+		while(in1==13)in1=getch();
+		in1-=48;
 		in2=getch()-48;
 		if(in1==9)
 		{
 			if(in2==9)
 			{
-				ilnast+=1;
+				dane.pelna_akt(1);
 				dz<<99<<" "<<czas_kon-poz_czas<<endl;
 			}
 			else if(in2==8)
 			{
-				ilnast-=1;
+				dane.pelna_akt(-1);
 				dz<<98<<" "<<czas_kon-poz_czas<<endl;
 			}
-			else if(in2==7)
+			else if(in2==7)//cofniecie ostatniej operacji, bazuje na pamiatce struktury tabela_danych
 			{
-				if(g[liczba1-1][liczba2-1]==0)g[liczba1-1][liczba2-1]=1;
-				else g[liczba1-1][liczba2-1]=0;
-				dz<<liczba1<<" "<<liczba2<<" "<<czas_kon-poz_czas<<endl;
+				liczba1=dane.back();
+				if(liczba1>0)
+				{
+					dz<<97<<" "<<czas_kon-poz_czas<<endl;
+				}
+				else
+				{
+					liczba1+=11;
+					liczba1>>=1;//wynikiem powinno byc 1 lub 0
+					if(liczba1==1 || liczba1==0)dz<<97<<" "<<czas_kon-poz_czas<<endl;
+					else blad=4;
+				}
 			}
 			else blad=2;
 		}
 		else
 		{
 			liczba1=in1*10+in2;
-			if(poz_czas==0 and liczba1==0)out=1;
+			if(poz_czas==0 && liczba1==0)out=1;
 			else if(liczba1==0)blad=1;
 			else if(liczba1>il_zaw || liczba1<0)blad=3;
 			else
@@ -69,8 +147,7 @@ void __cdecl dwa(void*Args)//drugi watek aktywny
 				else if(liczba2>il_zad || liczba2<0)blad=3;
 				else
 				{
-					if(g[liczba1-1][liczba2-1]==0)g[liczba1-1][liczba2-1]=1;
-					else g[liczba1-1][liczba2-1]=0;
+					dane.zmiana(liczba1,liczba2);
 					dz<<liczba1<<" "<<liczba2<<" "<<czas_kon-poz_czas<<endl;
 				}
 			}
@@ -123,117 +200,74 @@ void czas()
 	else ekran("  KONIEC CZASU",barwa);
 }
 
-void gen_ram(int d1,int dlug_nick)//funkcja oznacza w tablicy pozycje ramek
+void gen_ram()//funkcja oznacza w tablicy pozycje ramek
 {
 	int i,j,x;
-	x=10+dlug_nick+il_zad*3;
-	for(i=0;i<x;i++)ramki[1+d1][i+1+szer_nicosci]=1;
-	ramki[2+d1][1+szer_nicosci]=1;
-	ramki[2+d1][x+szer_nicosci]=1;
-	for(i=0;i<x;i++)ramki[3+d1][i+1+szer_nicosci]=1;
-	ramki[4+d1][1+szer_nicosci]=1;
-	for(i=0;i<il_zad+1;i++)ramki[4+d1][dlug_nick+5+3*i+szer_nicosci]=1;
-	ramki[4+d1][x+szer_nicosci]=1;
-	for(i=0;i<x;i++)ramki[5+d1][i+1+szer_nicosci]=1;
+	x=10+dl_nazw+il_zad*3;
+	for(i=0;i<x;i++)ramki[1+1][i+1+szer_nicosci]=1;
+	ramki[2+1][1+szer_nicosci]=1;
+	ramki[2+1][x+szer_nicosci]=1;
+	for(i=0;i<x;i++)ramki[3+1][i+1+szer_nicosci]=1;
+	ramki[4+1][1+szer_nicosci]=1;
+	for(i=0;i<il_zad+1;i++)ramki[4+1][dl_nazw+5+3*i+szer_nicosci]=1;
+	ramki[4+1][x+szer_nicosci]=1;
+	for(i=0;i<x;i++)ramki[5+1][i+1+szer_nicosci]=1;
 	for(i=0;i<il_zaw;i++)
 	{
-		ramki[6+d1+i*2][1+szer_nicosci]=1;
-		ramki[6+d1+i*2][4+szer_nicosci]=1;
-		for(j=0;j<il_zad+1;j++)ramki[6+d1+i*2][dlug_nick+5+j*3+szer_nicosci]=1;
-		ramki[6+d1+i*2][x+szer_nicosci]=1;
-		for(j=0;j<x;j++)ramki[7+d1+i*2][j+1+szer_nicosci]=1;
+		ramki[6+1+i*2][1+szer_nicosci]=1;
+		ramki[6+1+i*2][4+szer_nicosci]=1;
+		for(j=0;j<il_zad+1;j++)ramki[6+1+i*2][dl_nazw+5+j*3+szer_nicosci]=1;
+		ramki[6+1+i*2][x+szer_nicosci]=1;
+		for(j=0;j<x;j++)ramki[7+1+i*2][j+1+szer_nicosci]=1;
 	}
 }
 
-void wyp_ram(int d1,int dnick)//wypelnia komorki opisowe tabeli
+void wyp_ram()//wypelnia komorki opisowe tabeli
 {
-	int i,j,x;
-	x=10+dnick+il_zad*3;
-	to_xy(szer_nicosci+1+(x-nazwy[zaw].size())/2,d1+2);
+	int i,j;
+	to_xy(szer_nicosci+1+(szer_rys_tab-nazwy[zaw].size())/2,1+2);
 	ekran(nazwy[zaw],barwa);
-	to_xy(szer_nicosci+2+(dl_nazw-13)/2,d1+4);
+	to_xy(szer_nicosci+2+(dl_nazw-13)/2,1+4);
 	ekran("zawodnik\\zadanie",barwa);
 	for(i=0;i<il_zad;i++)
 	{
 		if(i<9)j=1;
 		else j=0;
-		to_xy(szer_nicosci+6+j+dl_nazw+3*i,d1+4);
+		to_xy(szer_nicosci+6+j+dl_nazw+3*i,1+4);
 		cout<<i+1;
 	}
-	to_xy(szer_nicosci+x-4,d1+4);
+	to_xy(szer_nicosci+szer_rys_tab-4,1+4);
 	cout<<"SUMA";
 	for(i=0;i<il_zaw;i++)
 	{
 		if(i<9)j=1;
 		else j=0;
-		to_xy(szer_nicosci+2+j,d1+6+i*2);
+		to_xy(szer_nicosci+2+j,1+6+i*2);
 		cout<<i+1;
-		to_xy(szer_nicosci+2+3,d1+6+i*2);
+		to_xy(szer_nicosci+2+3,1+6+i*2);
 		ekran(nazwy[i],barwa);
 	}
 }
 
 int obraz()
 {
-	int i,j,c,su;
+	int i,j,suma;
 	for(i=0;i<il_zaw;i++)
 	{
-		c=0;
+		suma=dane.wid[i][zad];
 		for(j=0;j<il_zad;j++)
 		{
 			to_xy(szer_nicosci+dl_nazw+2+4+3*j,7+2*i);
-			if(g[i][j]==1 and d[i][j]<1)
-			{
-				d[i][j]=1;
-				ekran("  ",barwa3);
-			}
-			else if(g[i][j]==1 and d[i][j]>0)ekran("  ",barwa3);
-			else if(g[i][j]==0 and d[i][j]>0)
-			{
-				if(c<ilnast)
-				{
-					d[i][j]=-1;
-					ekran("  ",barwa2);
-					c++;
-				}
-				else
-				{
-					d[i][j]=0;
-					ekran("  ",barwa);
-				}
-			}
-			else if(g[i][j]==0)
-			{
-				if(d[i][j]==-1)
-				{
-					if(c<ilnast)
-					{
-						c++;
-						ekran("  ",barwa2);
-					}
-					else
-					{
-						ekran("  ",barwa);
-						d[i][j]=0;
-					}
-				}
-				else if(c<ilnast)
-				{
-					ekran("  ",barwa2);
-					d[i][j]=-1;
-					c++;
-				}
-			}
+			if(dane.wid[i][j]>0)ekran("  ",barwa3);
+			else if(dane.wid[i][j]==0)ekran("  ",barwa2);
+			else if(dane.wid[i][j]==-1)ekran("  ",barwa);
 		}
-		su=0;
-		for(j=0;j<il_zad;j++)if(d[i][j]>0)su+=d[i][j];
 		to_xy(szer_nicosci+dl_nazw+2+4+3*il_zad,7+2*i);
 		ekran("",barwa);
-		if(su>999)cout<<su;
-		else if(su>99)cout<<" "<<su;
-		else if(su>9)cout<<"  "<<su;
-		else cout<<"   "<<su;
-		d[i][zad]=su;
+		if(suma<1000)cout<<" ";
+		if(suma<100)cout<<" ";
+		if(suma<10)cout<<" ";
+		cout<<suma;
 	}
 	ekran("",barwa);
 	return 0;
@@ -272,7 +306,7 @@ int testdanych5()//widocznosc na koniec
 int testdanych4()//czasy
 {
 	int bl=0;
-	if(czas_kon<0 || czas_kon>300)bl=10;
+	if(czas_kon<1 || czas_kon>300)bl=10;
 	if(dl_frozen<0)
 	{
 		dl_frozen=0;
@@ -316,19 +350,29 @@ int testdanych2()//odleglosc tabeli od krawedzi okna
 int testdanych1()//ilosci zawodnikow i zadan
 {
 	int bl=0;
-	if(il_zaw<1 || il_zaw>zaw)bl++;
-	if(il_zad<1 || il_zad>zad)bl++;
-	if(bl>0)return -100;
-	else return testdanych2();
+	if(il_zaw<1 || il_zaw>zaw)bl+=10;
+	if(il_zad<1 || il_zad>zad)bl+=10;
+	if(ilnast<1)
+	{
+		ilnast=1; //wartosc domyslna
+		bl++;
+	}
+	else if(ilnast>il_zad)
+	{
+		ilnast=il_zad; //druga wartosc domyslna
+		bl++;
+	}
+	if(bl>9)return -100;
+	else return testdanych2()+bl;
 }
 
-int data_in()
+int data_in(char* config)
 {
 	string kosz,nick;
 	int i,k=0;
 	fstream p;
-	p.open("config.txt",ios::in);
-	if(!p)ekran("\n\tBrak pliku konfiguracji!",12);
+	p.open(config,ios::in);
+	if(!p)ekran("\n\tBrak pliku konfiguracji!\n",12);
 	else
 	{
 		k=1;
@@ -356,7 +400,7 @@ int data_in()
 		getline(p,nazwy[zaw]);
 		getline(p,kosz);
 		p>>dl_nazw;
-		if(dl_nazw<5)dl_nazw=5;//sprawdzane od razu do dalszych wpisow
+		if(dl_nazw<13)dl_nazw=13;//sprawdzane od razu do dalszych wpisow
 		if(dl_nazw>25)dl_nazw=25;
 		getline(p,kosz);
 		for(i=0;i<il_zaw;i++)
@@ -366,20 +410,25 @@ int data_in()
 		}
 	}
 	p.close();
-	//a teraz ³ancuch zobowiazan sprawdzi te dane:
-	k=testdanych1();
-	if(k>0)ekran("\n\tDane zawiera³y b³êdy, niektóre wartoœci zosta³y automatycznie zmienione",12);
-	if(k<0)ekran("\n\tUszkodzony plik konfiguracji lub zbyt d³ugie napisy\n\t(wymagana naprawa przed uruchomieniem)",12);
+	//a teraz ³ancuch zobowiazan sprawdzi te dane
+	//ten wzorzec projektowy pozwala mi lepiej panowac nad poprawnoscia danych i ulatwia zrozumienie dzialania tych sprawdzen
+	if(k==1)
+	{
+		k=testdanych1();
+		if(k>0)ekran("\n\tDane zawiera³y b³êdy, niektóre wartoœci zosta³y automatycznie zmienione\n",12);
+		if(k<0)ekran("\n\tUszkodzony plik konfiguracji lub zbyt d³ugie napisy\n\t(wymagana naprawa przed uruchomieniem)\n",12);
+	}
 	if(k>=0)return 1;
 	else return 0;
 }
 
-int konkurs()
+int konkurs(char* plik_wej)
 {
 	Ukryjkursor();
 	int i,j,k,rr,t2,wj=0;
+	dane.zeruj();
 	
-	rr=data_in();
+	rr=data_in(plik_wej);
 	
 	if(rr==1)
 	{
@@ -393,9 +442,9 @@ int konkurs()
 		poz_czas=czas_kon;
 		
 		system("cls");
-		gen_ram(1,dl_nazw);
+		gen_ram();
 		pok_ram();
-		wyp_ram(1,dl_nazw);
+		wyp_ram();
 		czas();
 		
 		ekran("\n\tWciœnij dowolny klawisz aby rozpocz¹æ",barwa);
@@ -404,7 +453,7 @@ int konkurs()
 		_beginthread(dwa,0,NULL);
 		
 		clock_t start=clock();
-		for(i=0;i<il_zaw;i++)for(j=0;j<3;j++)d[i][j]=-1;
+		dane.pelna_akt(0,0);
 		
 		obraz();
 		czas();
@@ -418,54 +467,51 @@ int konkurs()
 			{
 				poz_czas-=1;
 				czas();
-				if(poz_czas>dl_frozen)obraz();
-				if(poz_czas>dl_frozen and poz_czas%5==0)//to zabezpieczenie na wypadek zmiany rozmiaru okna w czasie pracy programu
+				obraz();
+				if(poz_czas%5==0)//to zabezpieczenie na wypadek zmiany rozmiaru okna w czasie pracy programu
 				{
 					system("cls");
 					obraz();
 					czas();
 					pok_ram();
-					wyp_ram(1,dl_nazw);
+					wyp_ram();
 				}
-				if(poz_czas==dl_frozen)
+				if(poz_czas<=dl_frozen && poz_czas>0)
+				{
+					dane.aktualne=0;
+					to_xy(szer_nicosci+1,1+3+il_zaw*2+3);
+					ekran(frozen,barwa);
+				}
+				if(poz_czas==0 && czywid==0)
 				{
 					to_xy(szer_nicosci+1,1+3+il_zaw*2+3);
 					ekran(frozen,barwa);
 				}
-				if(blad==1)
+				if(blad>0)
 				{
 					to_xy(1,1);
-					ekran("1",barwa/16*16+12);
-					blad=0;
-				}
-				else if(blad==2)
-				{
-					to_xy(1,1);
-					ekran("2",barwa/16*16+12);
-					blad=0;
-				}
-				else if(blad==3)
-				{
-					to_xy(1,1);
-					ekran("3",barwa/16*16+12);
+					string tmp;
+					tmp=(char)(48+blad);
+					ekran(tmp,barwa/16*16+12);
 					blad=0;
 				}
 				else 
 				{
 					to_xy(1,1);
-					ekran("X",255);
+					ekran("X",barwa/16*17);//zmiana koloru tekstu na kolor tla
 				}
 			}
 			
 			for(i=0;i<il_zaw;i++)
 			{
 				k=0;
-				for(j=0;j<il_zad;j++)if(g[i][j]==1)k++;
+				for(j=0;j<il_zad;j++)if(dane.akt[i][j]==1)k++;
 				if(k==il_zad)koniec=1;
 			}
 			
 			if(koniec==1)
 			{
+				t2=poz_czas;
 				poz_czas=0;
 				to_xy(szer_nicosci+1,1+3+il_zaw*2+3);
 				ekran("KONIEC ZADAÑ      ",barwa);
@@ -473,12 +519,17 @@ int konkurs()
 			if(poz_czas==0)wj=1;
 		}
 		wj=0;
-		t2=0;
 		while(wj!=1)
 		{
-			while(clock()-start<=1000*(czas_kon-t2+1));
+			while(clock()-start<=1000*(czas_kon-t2)+100);
 			t2-=1;
-			if(czywid==1)obraz();
+			if(czywid==1 && dane.aktualne==0)
+			{
+				dane.aktualne=1;
+				dane.pelna_akt(0,0);
+			}
+			obraz();
+			pok_ram();
 			if(blad==-1)wj=1;
 		}
 	}

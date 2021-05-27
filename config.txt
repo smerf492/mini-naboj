@@ -1,23 +1,18 @@
 Wartoœci liczbowe musz¹ byæ ca³kowite i przedzielone wy³¹cznie bia³ymi znakami (np. spacja),"//"oznacza now¹ liniê.
 Linie komentarzy w tym pliku s¹ wpisane na sztywno do kodu, zmiania iloœci tych linii bêdzie skutkowaæ b³êdami.
 iloœæ zawodników / iloœæ zadañ / iloœæ pocz¹tkowych zadañ / odleg³oœæ tabeli od lewej strony okna aplikacji (max 30)
-10 12 3 8
+5 12 3 8
 kolor tabeli / kolor "zadanie na stole" / kolor "zrobione"
 240 153 170
 czas trwania konkursu (minuty, max 300) / czas zamro¿enia tabeli (minuty) / czy widaæ na koniec (1-tak, 0-nie)
-1 0 1
+2 1 1
 napis dla zamro¿enia widoku tabeli // kategoria (napis wyœwietlony jako nazwa tabeli)
 TABELA ZAMRO¯ONA
 SENIORZY
-iloœæ miejsca na nicki (5-25) // nicki (ka¿dy w osobnej linii)
+iloœæ miejsca na nicki (13-25) // nicki (ka¿dy w osobnej linii)
 15
 KANDYDAT 1
 KANDYDAT 2
 KANDYDAT 3
 KANDYDAT 4
 KANDYDAT 5
-KANDYDAT 6
-KANDYDAT 7
-KANDYDAT 8
-KANDYDAT 9
-KANDYDAT 10

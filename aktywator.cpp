@@ -2,6 +2,6 @@
 
 int main()
 {
-	konkurs();
+	konkurs("config.txt");
 	return 0;
 }
