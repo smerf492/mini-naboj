@@ -466,6 +466,7 @@ int konkurs(char* plik_wej)
 			if(clock()-start>1000*(czas_kon-poz_czas+1))
 			{
 				poz_czas-=1;
+				Ukryjkursor();
 				czas();
 				obraz();
 				if(poz_czas%5==0)//to zabezpieczenie na wypadek zmiany rozmiaru okna w czasie pracy programu
