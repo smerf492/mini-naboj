@@ -517,7 +517,7 @@ int konkurs(char* plik_wej)
 				to_xy(szer_nicosci+1,1+3+il_zaw*2+3);
 				ekran("KONIEC ZADAÑ      ",barwa);
 			}
-			if(poz_czas==0)wj=1;
+			if(poz_czas<=0)wj=1;
 		}
 		wj=0;
 		while(wj!=1)
